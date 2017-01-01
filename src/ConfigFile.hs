@@ -18,30 +18,81 @@ newtype Config = Config (Map Text Text)
 
 type Setting = (Text, Text)
 
+identifier :: Parser Text
+identifier = do
+  c <- letter
+  rest <- many alphaNum
+  spaces
+  return $ pack $ c : rest
+
+parseBrackets :: Parser Text
+parseBrackets = brackets (pack <$> manyTill anyChar (lookAhead $ char ']')) <* spaces
+
+parseValue :: Parser Text
+parseValue = (pack <$> manyTill anyChar eol) <* spaces
+
+parseKey :: Parser (Text, Text)
+parseKey = do
+  k <- identifier
+  _ <- char '=' <* spaces
+  v <- parseBrackets <|> parseValue
+  return (k, v)
+
+brackets :: Parser Text -> Parser Text
+brackets p = do
+  res <- between (char '[') (char ']') p
+  return $ "[" <> res <> "]"
+
+comment :: Parser Text
+comment = spaces *> char '#' *> (pack <$> manyTill anyChar eol) <* spaces
+
+eol :: Parser ()
+eol = (newline >> return ()) <|> eof
+
 parseCfg :: Parser Config
-parseCfg = Config <$> mapFromList <$> lines
-    where
-      lines = many parseLine
+parseCfg = Config <$> mapFromList <$> many parseKey
 
-parseLine :: Parser Setting
-parseLine = (,) <$> key <*> value
-    where
-      key = parseKey <?> "parseKey"
-      value = intercalate " " <$> parseTokens
+readConfigFile :: (MonadThrow m, MonadIO m) => FilePath -> m Config
+readConfigFile path = do
+    cts <- readFile path
+    case parse parseCfg "Read Config" cts of
+      Left parseError -> throwM $ ConfigError $ tshow parseError
+      Right config -> return config
 
-parseTokens :: Parser [Text]
-parseTokens = manyTill parseToken (try (lookAhead parseKey >> return ()) <|> try (spaces >> eof))
+-- parseCfg :: Parser Config
+-- parseCfg = Config <$> mapFromList <$> lines
+--     where
+--       lines = many parseLine
 
-parseKey :: Parser Text
-parseKey = pack <$> tok
-    where
-      tok = spaces *> manyTill anyChar (lookAhead space <|> lookAhead (char '=')) <* (spaces >> char '=')
+-- parseLine :: Parser Setting
+-- parseLine = (,) <$> key <*> value
+--     where
+--       key = parseKey <?> "parseKey"
+--       value = intercalate " " <$> parseTokens
 
-parseToken :: Parser Text
-parseToken = pack <$> (spaces *> tok) <?> "Token"
-    where
-      -- The lookAhead is to ensure that this parser fails on the empty string
-      tok = lookAhead anyChar >> manyTill anyChar (lookAhead (space >> return ()) <|> eof)
+-- parseTokens :: Parser [Text]
+-- parseTokens = manyTill parseToken (try (lookAhead parseKey >> return ()) <|> try (spaces >> eof))
+
+-- parseKey :: Parser Text
+-- parseKey = pack <$> tok
+--     where
+--       tok = spaces *> manyTill anyChar (lookAhead space <|> lookAhead (char '=')) <* (spaces >> char '=')
+
+-- parseToken :: Parser Text
+-- parseToken = pack <$> (spaces *> tok) <?> "Token"
+--     where
+--       -- The lookAhead is to ensure that this parser fails on the empty string
+--       tok = lookAhead anyChar >> manyTill anyChar (lookAhead (space >> return ()) <|> eof)
+
+-- -- parseBracket :: Char -> Char -> Parser Text
+-- -- parseBracket = runScanner 0 scanBracket
+
+-- scanBracket :: Char -> Char -> Int -> Char -> Maybe Int
+-- scanBracket _ _ 0 _ = Nothing
+-- scanBracket open close n c
+--   | c == open = Just (n + 1)
+--   | c == close = Just (n - 1)
+--   | otherwise = Just n
 
 data ConfigError = ConfigError Text
     deriving Typeable
@@ -64,9 +115,9 @@ getVal key (Config cfg) = do
 dispType :: Typeable a => Maybe a -> Text
 dispType = pack . intercalate " " . fmap show . typeRepArgs . typeOf
 
-readConfigFile :: (MonadThrow m, MonadIO m) => FilePath -> m Config
-readConfigFile path = do
-    cts <- readFile path
-    case parse parseCfg "Read Config" cts of
-      Left parseError -> throwM $ ConfigError $ tshow parseError
-      Right config -> return config
+-- readConfigFile :: (MonadThrow m, MonadIO m) => FilePath -> m Config
+-- readConfigFile path = do
+--     cts <- readFile path
+--     case parse parseCfg "Read Config" cts of
+--       Left parseError -> throwM $ ConfigError $ tshow parseError
+--       Right config -> return config
