@@ -1,3 +1,4 @@
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module ConfigFile
@@ -7,7 +8,6 @@ module ConfigFile
     ) where
 
 import ClassyPrelude hiding (many, try)
-import Prelude ()
 
 import Text.Parsec hiding ((<|>))
 import Text.Parsec.Text
@@ -54,7 +54,7 @@ parseCfg = Config <$> mapFromList <$> many parseKey
 
 readConfigFile :: (MonadThrow m, MonadIO m) => FilePath -> m Config
 readConfigFile path = do
-    cts <- readFile path
+    cts <- readFileUtf8 path
     case parse parseCfg "Read Config" cts of
       Left parseError -> throwM $ ConfigError $ tshow parseError
       Right config -> return config
