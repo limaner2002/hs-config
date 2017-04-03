@@ -51,3 +51,8 @@ main = hspec $ do
           cfg <- readConfigFile "test/settings3.conf"
           setting1 <- readTestSetting1 cfg
           setting1 `shouldBe` TestSetting1 {f1 = 73, f2 = "strVal", f3 = "ByteString value"}
+
+     it "can handle carriage returns in newlines" $ do
+          cfg <- readConfigFile "test/settings4.conf"
+          setting1 <- readTestSetting1 cfg
+          setting1 `shouldBe` TestSetting1 {f1 = 73, f2 = "strVal", f3 = "ByteString value"}

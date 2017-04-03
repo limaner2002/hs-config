@@ -7,7 +7,7 @@ module ConfigFile
     , Config
     ) where
 
-import ClassyPrelude hiding (many, try)
+import ClassyPrelude hiding (many, try, optional)
 
 import Text.Parsec hiding ((<|>))
 import Text.Parsec.Text
@@ -47,7 +47,7 @@ comment :: Parser Text
 comment = spaces *> char '#' *> (pack <$> manyTill anyChar eol) <* spaces
 
 eol :: Parser ()
-eol = (newline >> return ()) <|> eof
+eol = (optional (char '\r') >> newline >> return ()) <|> eof
 
 parseCfg :: Parser Config
 parseCfg = Config <$> mapFromList <$> many parseKey
